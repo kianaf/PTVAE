@@ -16,58 +16,6 @@ using Colors
 using JLD2
 using DistributionsAD
 using DecisionTree
-#######################################Producing different distributions for testing############################################
-function initialize_Normal(p, n)
-    Random.seed!(11)
-    truesig = fill(0.0,p,p)
-    truesig[diagind(truesig)] .= 1.0
-    truemu = fill(0.0,p)
-    x = (collect(rand(Distributions.MvNormal(truemu ,truesig),Int(n))'))
-    x = x[randperm(n),:]
-    return x
-end
-
-function initialize_skewed(p, n)
-    truesig = fill(0.0,p,p)
-    truesig[diagind(truesig)] .= 1.0
-    truemu = fill(0.0,p)
-    x = (collect(rand(Distributions.Gumbel(0,0.15),n)'))
-    x = vcat(x,(collect(rand(Distributions.Gumbel(0,0.15),n)')))
-    x= x'
-    x = x[randperm(n),:]
-    return x
-end
-
-function initialize_bimodal(p, n)
-    truesig = fill(0.0,p,p)
-    truesig[diagind(truesig)] .= 1.0
-    truemu = fill(0.0,p)
-    x = (collect(rand(Distributions.MvNormal(truemu .+0 ,truesig),Int(7n/10))'))
-    x = vcat(x,collect(rand(Distributions.MvNormal(truemu .+ 4 ,truesig  ),Int(3n/10))'))
-    x = x[randperm(n),:]
-    return x
-end
-#######################################Preprocessing############################################
-function remove_badrecord!(x)
-    for i=1:size(x)[1]
-        if (i > size(x)[1])
-            break
-        elseif count(x[i,:].=="NA")>0
-                x = x[1:end .!=i , 1:end]
-                println(size(x)[1])
-        end
-    end
-    return x
-end
-
-function stringtoNumber!(x)
-    for i=1:size(x)[2]
-        if (x[1,i] isa String)
-            x[:,i] = Base.parse.(Int64, x[:,i])
-        end
-    end
-    return x
-end
 #######################################BoxCox Transformation############################################
 # change abs(min) to -min 
 function set_alpha(x)
@@ -166,65 +114,8 @@ function trainBoxCox!(params2, opt, i, x)
     append!(loss_array_lambda[i], lossValue_lambda)
 end
 
-function round_discrete(input)
-    output = fill(0.0, n,p)
-    for i = 1:p
-        if count(x[:,i].%1 .!=0) ==0
-            output[:,i] = round.(input[:,i])
-        else
-            output[:,i] = input[:,i]
-        end
-    end
-    return output
-end
-#######################################Evaluation############################################
-function utility(x, syn)
-    Random.seed!(11)
-    comb = vcat(syn, x)
-    labelTsyn = fill(1,  size(comb)[1]-size(x)[1],1)
-    labelTx = fill(0, size(x)[1],1)
-    labelT =  vcat(labelTsyn, labelTx)
-
-    model = DecisionTreeClassifier(max_depth=15, min_samples_leaf = 20)  # maximum depth should be tuned using cv
-
-    fit!(model, comb, labelT[:,1])
-    println(model)
-    
-    P = [predict_proba(model, comb[i,:]) for i=1:n+n]
-
-    pMSE = (1/(n + n)) * sum([((P[i][2].- (n/(n+n))).^2) for i=1:n+n])
-    # Up = (1/(n + n)) * sum([(abs(P[i][2].- (n/(n+n)))) for i=1:n+n])
-    
-    # tree = print_tree(model)
-
-    println(pMSE)
-    
-    numberOfPer = 100
-    pMSE_per = fill(0.0, numberOfPer)
-    
-    #permute label 
-    for i = 1:numberOfPer
-        PerLabelT = labelT[randperm(length(labelT))]
-        model = DecisionTreeClassifier(max_depth=15, min_samples_leaf = 20)  # maximum depth should be tuned using cv
-        # fit!(model, comb.data, labelT[:,1])
-        fit!(model, comb, PerLabelT[:,1])
-        P = [predict_proba(model, comb[j,:]) for j=1:n+n]
-        # P = [predict_proba(model, comb.data[i,:]) for i=1:n+n]
-        # predictedLabels = [predict(model, comb.data[i,:])> 0.50 ? 1.0 : 0.0 for i=1:n+n]
-        pMSE_per[i] = (1/(n + n)) * sum([((P[j][2].- (n/(n+n))).^2) for j=1:n+n])
-    end
-    
-    pMSE_per_mean = mean(pMSE_per)
-    pMSE_per_std = std(pMSE_per)
-    
-    pMSE_ratio = pMSE / pMSE_per_mean
-    Standardize_pMSE = (pMSE - pMSE_per_mean)/pMSE_per_std
-
-    println("pMSE_ratio: " ,pMSE_ratio)
-    println("Standardize_pMSE: ", Standardize_pMSE)
-end
 #######################################Power function############################################
-function set_x3ParametersArray!(shiftArray, peak1Array, peak2Array,powerArray, x)
+function set_power_parameter!(shiftArray, peak1Array, peak2Array,powerArray, x)  
     for i=1:p
         shiftArray[i] = medianArray[i]
         peak1Array[i] = -1
@@ -362,8 +253,6 @@ function trainx3!(shiftArray, peak1Array, peak2Array, powerArray, i, x, epoch)
         end
     end
 
-
-
     if epoch ==1
         powerTrain = 10
         peakTrain = 10
@@ -461,19 +350,23 @@ function IQR(x)
     abs(quantile(sort(x), 0.8419,sorted = true) - Med - std(x)) + abs(Med - quantile(sort(x), 0.1581,sorted = true) - std(x)) + abs(quantile(sort(x), 0.1581,sorted = true) - quantile(sort(x), 0.0223,sorted = true) - std(x)) + abs(quantile(sort(x), 0.9777,sorted = true)-quantile(sort(x), 0.8419,sorted = true) - std(x))  
 end
 
-function bimodality_coefficient(x)
-    return (skewness(x)^2 +1)/(kurtosis(x)+3) 
-end
-
-function log_likelihood(x)
-    N = length(x)
-    (-N / 2.0)*log.(Base.MathConstants.e,2π) + (-N / 2.0) *  log.(Base.MathConstants.e,(std(x))^2) - (1/2(std(x)^2))*sum((x .-mean(x)).^2)
-end
-
-
 function log_likelihood_BoxCox(x, i)
     N = length(x)
     y = BC_transform_one_dimension(x, lambdaArray[i], alphaArray[i], i)
     σ² = var(y, corrected = false) 
     -N / 2.0 * log(σ²) + (lambdaArray[i] - 1) * sum(log.(x .+ alphaArray[i])) 
+end
+
+
+#########################Change the type of data to the same type of original data########################
+function round_discrete(input)
+    output = fill(0.0, n,p)
+    for i = 1:p
+        if count(x[:,i].%1 .!=0) ==0
+            output[:,i] = round.(input[:,i])
+        else
+            output[:,i] = input[:,i]
+        end
+    end
+    return output
 end

@@ -48,13 +48,11 @@ x_temp = convert(Array, CSV.read("C:\\Users\\farhadyar\\Desktop\\ist.csv", heade
 
 data_withheader = convert(Array, CSV.read("C:\\Users\\farhadyar\\Desktop\\ist.csv", header=false))
 
-#x = x[:, 2:size(x)[2] - 1]
 p = size(x_temp)[2] +1
 
 n = size(x_temp)[1]
 header = data_withheader[1, 2:p-1]
 header = vcat("RCONSC1", "RCONSC2", header)
-# dataTypeArray = eltypes(CSV.read("C:\\Users\\farhadyar\\Desktop\\Simulation Design\\data_scenario1_removedBinary_addedBimodal.csv", header=false))
 
 
 cnt = 1

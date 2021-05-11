@@ -339,7 +339,6 @@ end
 
 function histogram_dimensions(x, x_retr, title)
 
-
     if floor(Int64, p/3) + 1 > 3
         rowSize = floor(Int64, p/3) + 1
         columnSize = 3
@@ -373,23 +372,16 @@ function histogram_dimensions(x, x_retr, title)
 
             plotArray[i, j] = plt
             cnt+=1
-
         end
-
-
     end
 
-
     Gadfly.title(gridstack(plotArray), title)
-    # Theme(key_title_font_size = 16pt))
 end
 
 
 function save_plot(plt, title)
     img = SVG(title)
-
     Gadfly.draw(img, plt)
-    # Compose.load(title)
 end
 
 

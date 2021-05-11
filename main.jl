@@ -9,13 +9,6 @@ includet("C:\\Users\\farhadyar\\Desktop\\plotting_paper.jl")
 includet("C:\\Users\\farhadyar\\Desktop\\AIQN.jl")
 includet("C:\\Users\\farhadyar\\Desktop\\load_parameters.jl")
 
-Random.seed!(42)
-m = 20
-n = 5000
-p = 2
-x1 = initialize_skewed(p,n)
-x2 = initialize_bimodal(p,n)
-x = hcat(x1[:,1], x2[:,1])
 
 ourMethod,FedSyn, VAE, QVAE, GAN = load_all_methods_sim!()
 ourMethod,FedSyn, VAE, GAN = load_all_methods_ist!()
@@ -166,7 +159,7 @@ lossValue = 0.0
 
 loss_array = [push!([]) for i in 1:p]
 
-shiftArray, peak1Array, peak2Array, powerArray = set_x3ParametersArray!(shiftArray, peak1Array, peak2Array, powerArray, x_tr_BC_st)
+shiftArray, peak1Array, peak2Array, powerArray = set_power_parameter!(shiftArray, peak1Array, peak2Array, powerArray, x_tr_BC_st)
 
 x_tr_logit= fill(0.0, n,p)
 
