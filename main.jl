@@ -1,83 +1,72 @@
-# activate C:\Users\farhadyar\AppData\Local\Julia-1.3.1\Example\Project.toml
+cd("C:\\Users\\farhadyar\\Documents\\Project_PTVAE\\progs\\github_project\\PTVAE")
+
+using Pkg;
+
+Pkg.activate("v_env") #virtual environment activation for compatible package management
+
+Pkg.status()
+
+
+"""
+Package versions should be:
+  [336ed68f] CSV v0.5.24
+  [159f3aea] Cairo v1.0.2
+  [5ae59095] Colors v0.9.6
+  [a81c6b42] Compose v0.8.1
+  [a93c6f00] DataFrames v0.20.2
+  [7806a523] DecisionTree v0.10.10
+  [31c24e10] Distributions v0.21.12
+  [ced4e74d] DistributionsAD v0.1.0
+  [587475ba] Flux v0.10.4
+  [c91e804a] Gadfly v1.2.1
+  [09f84164] HypothesisTests v0.8.0
+  [033835bb] JLD2 v0.1.11
+  [e5e0dc1b] Juno v0.7.2
+  [91a5bcdd] Plots v0.29.9
+  [d330b81b] PyPlot v2.8.2
+  [295af30f] Revise v2.5.2
+  [60ddc479] StatPlots v0.9.2
+  [2913bbd2] StatsBase v0.32.1
+  [112f6efa] VegaLite v2.3.0
+  [e88e6eb3] Zygote v0.4.20
+  [8bb1440f] DelimitedFiles
+  [8ba89e20] Distributed
+  [37e2e46d] LinearAlgebra
+  [9a3f8284] Random
+  [10745b16] Statistics
+  """
+
 using Revise
 using CSV
-using DataFrames
 
-includet("C:\\Users\\farhadyar\\Desktop\\transformations.jl")
-includet("C:\\Users\\farhadyar\\Desktop\\VAE.jl")
-includet("C:\\Users\\farhadyar\\Desktop\\plotting_paper.jl")
-includet("C:\\Users\\farhadyar\\Desktop\\AIQN.jl")
-includet("C:\\Users\\farhadyar\\Desktop\\load_parameters.jl")
+includet("transformations.jl")
+includet("VAE.jl")
+includet("visualization\\plotting_paper.jl")
+includet("AIQN\\AIQN.jl")
+includet("load_data.jl")
 
 
-ourMethod,FedSyn, VAE, QVAE, GAN = load_all_methods_sim!()
-ourMethod,FedSyn, VAE, GAN = load_all_methods_ist!()
+# ourMethod,FedSyn, VAE, QVAE, GAN = load_all_methods_sim!()
+# ourMethod,FedSyn, VAE, GAN = load_all_methods_ist!()
 
-Random.seed!(11)
-n=2500
-p=21
-m = 50
+# which dataset you want to load? 
+# toy example data
+# data_string  = "toy"
 
-x = convert(Array, CSV.read("C:\\Users\\farhadyar\\Desktop\\Simulation Design\\data_scenario1_Bimodal_Binary.csv", header=true))
+# simulation data
+# data_string  = "sim"
 
-data_withheader = convert(Array, CSV.read("C:\\Users\\farhadyar\\Desktop\\Simulation Design\\data_scenario1_Bimodal_Binary.csv", header=false))
+# ist data
+data_string  = "ist"
 
-header = data_withheader[1, 1:p]
+# your own data put the url
+# data_string  = "url"
 
-#### preprocess of IST removing NA and redifinition of RCONSC
-Random.seed!(11)
-m = 200
-x_temp = convert(Array, CSV.read("C:\\Users\\farhadyar\\Desktop\\ist.csv", header=true))
-data_withheader = convert(Array, CSV.read("C:\\Users\\farhadyar\\Desktop\\ist.csv", header=false))
+m, n, p, x, dataTypeArray = load_dataset(data_string)
 
-p = size(x_temp)[2] +1
 
-n = size(x_temp)[1]
-header = data_withheader[1, 2:p-1]
-header = vcat("RCONSC1", "RCONSC2", header)
 
-cnt = 1
-
-x = fill(0, n-count(x_temp[:,p-1].=="NA"), p)
-for i = 1:n
-    if x_temp[i,p-1]!="NA"
-        if x_temp[i,1]==0
-            x[cnt,1] = 0
-            x[cnt,2] = 0
-        elseif x_temp[i,1]==1
-            x[cnt,1] = 1
-            x[cnt,2] = 0
-        else
-            x[cnt,1] = 0
-            x[cnt,2] = 1
-        end
-        #println("chie")
-        x[cnt,3:p-1] = x_temp[i,2:p-2]
-
-        x[cnt,p] = Base.parse(Int64, x_temp[i,p-1])
-        global cnt+=1
-    end    
-end
-
-n = size(x)[1]
-
-# notice that the i , j is kind of confusing here but dont change it try to understand that.
-dataTypeArray = fill("Binary", p)
-
-for i = 1:p
-    for j = 1:n
-        if x[j,i] isa String
-            dataTypeArray[i] = "String"
-            break
-        elseif x[j,i]!=0 && x[j,i]!=1
-            dataTypeArray[i] = "Continuous"
-            break
-        end
-    end
-end
-
-scatterplot_matrix(x, "Original Data")
-
+############################ standardization #####################################
 Random.seed!(11)
 x_st = fill(0.0, n,p)
 x_std= std(x, dims=1)
@@ -94,6 +83,8 @@ end
 
 scatterplot_matrix(x_st, "")
 
+
+####################### Box-Cox transformation ##################################
 Random.seed!(11)
 
 alphaArray = set_alpha(x_st)
@@ -128,7 +119,8 @@ for i= 1:p
         loss_plot(loss_array_lambda[i])
     end
 end
-# ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+############################ standardization of Box-Cox transformation output #####################################
 x_tr_BC_st = fill(0.0, n,p)
 x_tr_BC_std= std(x_tr_BC, dims=1)
 x_tr_BC_mean = mean(x_tr_BC, dims=1)
@@ -143,7 +135,8 @@ for i =1:p
 end
 
 scatterplot_matrix(x_tr_BC_st, "")
-########################################################################
+
+####################### Power transformation ##################################
 Random.seed!(11)
 maxArray = fill(0.0, p)
 minArray = fill(0.0, p)
@@ -161,27 +154,27 @@ loss_array = [push!([]) for i in 1:p]
 
 shiftArray, peak1Array, peak2Array, powerArray = set_power_parameter!(shiftArray, peak1Array, peak2Array, powerArray, x_tr_BC_st)
 
-x_tr_logit= fill(0.0, n,p)
+x_tr_power= fill(0.0, n,p)
 
 for i =1:p
     if dataTypeArray[i] != "Continuous"
         println("not continuous")
-        x_tr_logit[:,i] = x[:,i]
+        x_tr_power[:,i] = x[:,i]
     elseif powerArray[i] ==0
-        x_tr_logit[:,i] = x_tr_BC_st[:,i]
+        x_tr_power[:,i] = x_tr_BC_st[:,i]
     else
-        x_tr_logit[:,i] = power_tr(x_tr_BC_st[:,i],i)
+        x_tr_power[:,i] = power_tr(x_tr_BC_st[:,i],i)
     end
 end
 
-scatterplot_matrix(x_tr_logit, "")
+scatterplot_matrix(x_tr_power, "")
 
-x_retr_logit =fill(0.0, n, p)
+x_retr_power =fill(0.0, n, p)
 
 for j =1:n
-    x_retr_logit[j,:] = root_tr(x_tr_logit[j,:]) #.+ quantileArray_tr_logit)
+    x_retr_power[j,:] = power_backtransform(x_tr_power[j,:]) 
 end
-scatterplot_matrix(x_retr_logit, "")
+scatterplot_matrix(x_retr_power, "")
 
 for i= 1:p
     if dataTypeArray[i] != "Continuous"
@@ -190,22 +183,25 @@ for i= 1:p
         loss_plot(loss_array[i])
     end
 end
-# ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-x_tr_logit_st = fill(0.0, n,p)
-x_tr_logit_std= std(x_tr_logit, dims=1)
-x_tr_logit_mean = mean(x_tr_logit, dims=1)
+############################ standardization of power transformation output #####################################
+x_tr_power_st = fill(0.0, n,p)
+x_tr_power_std= std(x_tr_power, dims=1)
+x_tr_power_mean = mean(x_tr_power, dims=1)
 quantileArray = fill(0.0,p)
 
 for i =1:p
     if dataTypeArray[i] != "Continuous"
         println("not continuous")
-        x_tr_logit_st[:,i] = x_tr_logit[:,i]
+        x_tr_power_st[:,i] = x_tr_power[:,i]
     else
-        x_tr_logit_st[:,i] =  (x_tr_logit[:,i] .- x_tr_logit_mean[i])./(2*x_tr_logit_std[i])
+        x_tr_power_st[:,i] =  (x_tr_power[:,i] .- x_tr_power_mean[i])./(2*x_tr_power_std[i])
     end
 end
 
-scatterplot_matrix(x_tr_logit_st, "")
+scatterplot_matrix(x_tr_power_st, "")
+
+
+############################ VAE layers definition #####################################
 
 Random.seed!(11)
 
@@ -246,12 +242,11 @@ status = "not trained"
 
 opt = ADAM(0.01)
 
-params1 = trainVAE!(x_tr_logit_st, "with_transformations")
+params1 = trainVAE!(x_tr_power_st, "with_transformations")
 
 loss_plot(loss_array_VAE)
 
-# it depends on which one do you want prior or posterior
-#zmat = ???
+##################Prior vs Posterior
 
 set_default_plot_size(50cm, 50cm)
 
@@ -304,6 +299,8 @@ syndata_posterior_quantile = quantile_VAE("posterior")
 plot_temp = histogram_dimensions(x, syndata_posterior_quantile, "syndata_posterior")
 
 savefig("C:\\Users\\farhadyar\\Desktop\\Histogram_quantile&ourVAE_posterior.png")
+
+
 
 #********************************************************************************************************
 x_st = fill(0.0, n,p)

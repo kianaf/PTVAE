@@ -8,14 +8,13 @@ using Statistics
 using StatsBase: geomean
 using PyPlot
 using Compose
-using VegaLite
 using DelimitedFiles
 using Zygote
-using Cairo
 using Colors
 using JLD2
 using DistributionsAD
 using DecisionTree
+using DataFrames
 #######################################BoxCox Transformation############################################
 # change abs(min) to -min 
 function set_alpha(x)
@@ -40,9 +39,7 @@ end
 
 function set_lambda!(lambdaArray, x)
     params2= Flux.params(lambdaArray)
-
     opt = ADAM(0.01)
-
     for i = 1:p
         Random.seed!(11)
         if dataTypeArray[i] != "Continuous"
@@ -79,9 +76,8 @@ function BC_transform_one_dimension(x, lambda, alpha, i)
     return copy(x_tr)
 end
 
-function backtransform(x)
+function bc_backtransform(x)
     x_retr = fill(0.0, p)
-
     for i=1:p
         if dataTypeArray[i] !="Continuous"
             x_retr[i] = x[i]
@@ -133,13 +129,13 @@ function set_power_parameter!(shiftArray, peak1Array, peak2Array,powerArray, x)
             if j > 2
                 if !con
                     @info "Epoch $j"
-                    trainx3!(shiftArray, peak1Array, peak2Array, powerArray, i, x,j)
+                    train_power!(shiftArray, peak1Array, peak2Array, powerArray, i, x,j)
                 else
                     break
                 end
             else
                 @info "Epoch $j"
-                trainx3!(shiftArray, peak1Array, peak2Array,powerArray, i, x,j)
+                train_power!(shiftArray, peak1Array, peak2Array,powerArray, i, x,j)
             end
         end
         
@@ -152,7 +148,6 @@ end
 
 
 function power_tr(x, i)
-    
     x_tr = Zygote.Buffer(x, length(x)[1], 1)
     shift = shiftArray[i]   
     x_tr = x .- shift
@@ -179,7 +174,7 @@ function power_tr_shift(x, i)
 end
 
 
-function root_tr(x)
+function power_backtransform(x)
     x_retr = fill(0.0, p)
     for i=1:p
         if dataTypeArray[i] !="Continuous"
@@ -207,28 +202,27 @@ function root_tr(x)
     return x_retr
 end
 
-
+# we define this function because the julia root function throws domain error when we have negative base
 function root(x,r)
     (relu'(x)*x)^(1/r) - (1 - relu'(x))*(abs(x))^(1/r)
+
+    # For positive bases: (relu'(x)*x)^(1/r)
+    
+    # For negative bases: - (1 - relu'(x))*(abs(x))^(1/r)
 end
 
-
-function trainx3!(shiftArray, peak1Array, peak2Array, powerArray, i, x, epoch)
-
+function train_power!(shiftArray, peak1Array, peak2Array, powerArray, i, x, epoch)
     if epoch ==1
         shiftTrain = 50
     else
         shiftTrain = 10
     end
-
     for j=1:shiftTrain
-
         if epoch == 1
             params1 = Flux.params(shiftArray, powerArray)
         else
             params1 = Flux.params(shiftArray)
-        end
-        
+        end     
         println(params1)
         try
             gs = gradient(params1) do
@@ -238,7 +232,6 @@ function trainx3!(shiftArray, peak1Array, peak2Array, powerArray, i, x, epoch)
                     (IQR(power_tr(x[:,i], i))) 
                 end
             end
-
             opt = ADAM(0.01)
 
             lastParam = shiftArray[i]
@@ -356,8 +349,6 @@ function log_likelihood_BoxCox(x, i)
     σ² = var(y, corrected = false) 
     -N / 2.0 * log(σ²) + (lambdaArray[i] - 1) * sum(log.(x .+ alphaArray[i])) 
 end
-
-
 #########################Change the type of data to the same type of original data########################
 function round_discrete(input)
     output = fill(0.0, n,p)

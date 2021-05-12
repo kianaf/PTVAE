@@ -56,7 +56,7 @@ function VAE_output(title)
     Random.seed!(11)
     
     if status == "with_transformations"
-        data1 = [[x_tr_logit_st[k,:]'] for k in Iterators.partition(1:n,m)]
+        data1 = [[x_tr_power_st[k,:]'] for k in Iterators.partition(1:n,m)]
     else
         data1 = [[x_st[k,:]'] for k in Iterators.partition(1:n,m)]
 
@@ -88,9 +88,7 @@ function VAE_output(title)
                 end
             end
         end
-        set_default_plot_size(50cm, 50cm)
-        display_data_Gadfly(latvals_array, "")
-     
+
         latvals= [transpose(zmat[k,:]) for k in Iterators.partition(1:n,m)]
 
     elseif title =="posterior"
@@ -128,31 +126,28 @@ function VAE_output(title)
     if status == "with_transformations"
         for i=1:p
             if dataTypeArray[i] =="Continuous"
-                temp_recvals[:,i] = (temp_recvals[:,i] .* 2*x_tr_logit_std[i]) .+ x_tr_logit_mean[i]
+                temp_recvals[:,i] = (temp_recvals[:,i] .* 2*x_tr_power_std[i]) .+ x_tr_power_mean[i]
             end
         end
 
-        x_retr_logit =fill(0.0, n, p)
-
+        x_retr_power=fill(0.0, n, p)
         for j =1:n
-            x_retr_logit[j,:] = root_tr(temp_recvals[j,:])
+            x_retr_power[j,:] = power_backtransform(temp_recvals[j,:])
         end
 
         x_retr_BC =fill(0.0, n, p)
-
         for i=1:p
             if dataTypeArray[i] =="Continuous"
-                x_retr_BC[:,i] = (x_retr_logit[:,i] .* 2*x_tr_BC_std[i]) .+ x_tr_BC_mean[i]
+                x_retr_BC[:,i] = (x_retr_power[:,i] .* 2*x_tr_BC_std[i]) .+ x_tr_BC_mean[i]
             else
-                x_retr_BC[:,i] = x_retr_logit[:,i]
+                x_retr_BC[:,i] = x_retr_power[:,i]
             end
             
         end
 
         x_retr =fill(0.0, n, p)
-
         for j =1:n
-            x_retr[j,:] = backtransform(x_retr_BC[j,:] )
+            x_retr[j,:] = bc_backtransform(x_retr_BC[j,:] )
         end
 
         for i=1:p
@@ -179,7 +174,7 @@ function quantile_VAE(title)
     Random.seed!(11)
 
     if status == "with_transformations"
-        data1 = [[x_tr_logit_st[k,:]'] for k in Iterators.partition(1:n,m)]
+        data1 = [[x_tr_power_st[k,:]'] for k in Iterators.partition(1:n,m)]
     else
         data1 = [[x_st[k,:]'] for k in Iterators.partition(1:n,m)]
     end
@@ -200,7 +195,7 @@ function quantile_VAE(title)
         zmat = collect(hcat(map(val -> val,latvals)...)')
     end
 
-    includet("C:\\Users\\farhadyar\\Desktop\\firststeps_13.12.jl")
+    includet("C:\\Users\\farhadyar\\Desktop\\AIQN\\AIQN.jl")
 
     order_ = find_Order(zmat)
 
@@ -231,39 +226,13 @@ function quantile_VAE(title)
         end
     end
 
-    if status == "with_transformations"
-
-        for i=1:p
-            if dataTypeArray[i] =="Continuous"
-                temp_synvals[:,i] = (temp_synvals[:,i] .* 2*x_tr_logit_std[i]) .+ x_tr_logit_mean[i]
-            end
+    for i=1:p
+        if dataTypeArray[i] =="Continuous"
+            temp_synvals[:,i] = (temp_synvals[:,i] .* 2*x_std[i]) .+ x_mean[i]
         end
-
-        for i=1:p
-            temp_synvals[:,i] = temp_synvals[:,i] .+ (quantileArray_tr_logit[i]) # .- recvals_valley[1][i])
-        end
-
-        x_retr_tanh_quantile =fill(0.0, n, p)
-
-        for j =1:n
-            x_retr_tanh_quantile[j,:] = tanhInv_backtransform(temp_synvals[j,:]) #.+ quantileArray_tr_logit)
-        end
-
-        x_retr_quantile =fill(0.0, n, p)
-
-        for j =1:n
-            x_retr_quantile[j,:] = backtransform(x_retr_tanh_quantile[j,:] )
-        end
-        return x_retr_quantile
-
-    else
-        for i=1:p
-            if dataTypeArray[i] =="Continuous"
-                temp_synvals[:,i] = (temp_synvals[:,i] .* 2*x_std[i]) .+ x_mean[i]
-            end
-        end
-        return temp_synvals
     end
+    return temp_synvals
+
 end
 
 function average_loss(data)
