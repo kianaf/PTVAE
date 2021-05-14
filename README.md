@@ -1,4 +1,4 @@
-# PTVAE.jl
+# PTVAE
 
 This is the implementation for "Adapting deep generative approaches for getting synthetic data with realistic marginal distributions".
 
